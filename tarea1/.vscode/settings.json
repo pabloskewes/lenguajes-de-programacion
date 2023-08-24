@@ -1,0 +1,8 @@
+{
+    "code-runner.executorMap": {
+        "racket": "racket \"$fileName\" && echo \"\n \" && racket -i -e '(enter! \"$fileName\")'",
+        "scheme": "racket \"$fileName\" && echo \"\n \" && racket -i -e '(enter! \"$fileName\")'"
+    },
+    "code-runner.clearPreviousOutput": true,
+    "code-runner.runInTerminal": true
+}
