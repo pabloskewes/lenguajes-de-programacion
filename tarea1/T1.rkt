@@ -232,12 +232,6 @@
 
 #| Parte D |#
 
-;; simplify :: Prop -> Prop
-;; simplifica una proposición (1 paso), simplificando primero las negaciones y luego distribuyendo los ands
-;; simplified = distribute-and (simplify-negations prop)
-
-
-
 ;; DNF :: Prop -> Prop
 ;; devuelve la forma normal disyuntiva de una proposición
 (define (DNF prop)
@@ -256,6 +250,13 @@
             (andp (varp "b") (varp "d")))
     )
 )
+(test 
+    (DNF (orp (notp (notp (andp (varp "a") (orp (varp "b") (varp "c"))))) (orp (varp "f") (varp "g"))))
+    (orp
+        (orp (andp (varp "a") (varp "b")) (andp (varp "a") (varp "c")))
+        (orp (varp "f") (varp "g"))
+    )
+)
 
 
 #| P3 |#
@@ -263,15 +264,111 @@
 #| Parte A |#
 
 ;; fold-prop :: (String -> a) (a a -> a) (a a -> a) (a -> a) -> Prop -> a
+;; captura el esquema de recursión asociado a Prop
+(define (fold-prop var-f and-f or-f not-f)
+    (lambda (prop)
+        (match prop
+            [(varp v) (var-f v)]
+            [(andp p1 p2) (and-f ((fold-prop var-f and-f or-f not-f) p1) ((fold-prop var-f and-f or-f not-f) p2))]
+            [(orp p1 p2) (or-f ((fold-prop var-f and-f or-f not-f) p1) ((fold-prop var-f and-f or-f not-f) p2))]
+            [(notp p) (not-f ((fold-prop var-f and-f or-f not-f) p))])))
+
+(test ((fold-prop (lambda (v) 1) + + +) (varp "a")) 1)
 
 #| Parte B |#
 
 ;; occurrences-2 :: Prop String -> Number
+;; devuelve la cantidad de veces que una variable aparece en una proposición
+;; usando fold-prop
+(define (occurrences-2 prop var)
+    ((fold-prop 
+        (lambda (v) (if (string=? v var) 1 0))
+        + 
+        +
+        identity
+    ) prop))
+
+(test (occurrences-2 (varp "a") "a") 1)
+(test (occurrences-2 (varp "a") "b") 0)
+(test (occurrences-2 (notp (varp "a")) "a") 1)
+(test (occurrences-2 (notp (varp "a")) "b") 0)
+(test (occurrences-2 (andp (varp "a") (varp "b")) "a") 1)
+(test (occurrences-2 (andp (varp "a") (varp "b")) "b") 1)
+(test (occurrences-2 (andp (varp "a") (varp "b")) "c") 0)
+(test (occurrences-2 (orp (varp "a") (varp "b")) "a") 1)
+(test (occurrences-2 (orp (varp "a") (varp "b")) "b") 1)
+(test (occurrences-2 (orp (varp "a") (varp "b")) "c") 0)
+(test (occurrences-2 (andp (varp "a") (orp (varp "a") (varp "b"))) "a") 2)
 
 ;; vars-2 :: Prop -> (Listof String)
+;; devuelve una lista con todos los nombres de variables que ocurren en la
+;; proposición usando fold-prop. La lista retornada no debe tener duplicados.
+(define (vars-2 prop)
+    ((fold-prop 
+        (lambda (v) (list v)) ; var-f
+        (lambda (l1 l2) (remove-duplicates (append l1 l2))) ; and-f
+        (lambda (l1 l2) (remove-duplicates (append l1 l2))) ; or-f
+        identity ; not-f
+    ) prop))
+
+(test (vars-2 (varp "a")) (list "a"))
+(test (vars-2 (notp (varp "a"))) (list "a"))
+(test (vars-2 (andp (varp "a") (varp "b"))) (list "a" "b"))
+(test (vars-2 (orp (varp "a") (varp "b"))) (list "a" "b"))
+(test (vars-2 (andp (varp "a") (orp (varp "a") (varp "b")))) (list "a" "b"))
 
 ;; eval-2 :: Prop (Listof (Pair String Boolean)) -> Boolean
+;; evalúa una proposición p, obteniendo los valores de cada variables desde una ambiente env,
+;; devolviendo el valor de verdad de dicha fórmula. Se asume que la lista no contiene dos veces una misma variable.
+;; En caso de que el nombre de una variable no aparezca en el ambiente, lanza un error:
+;; (error 'eval "variable <var-name> is not defined in environment".
+;; Usando fold-prop
+(define (eval-2 prop env)
+    ((fold-prop 
+        (lambda (v) (match (assoc v env)
+                        [(cons v1 truth-value) truth-value]
+                        [else (error 'eval "variable ~a is not defined in environment" v)])) ; var-f
+        (lambda (p1 p2) (and p1 p2)) ; and-f
+        (lambda (p1 p2) (or p1 p2)) ; or-f
+        (lambda (p) (not p)) ; not-f
+    ) prop))
 
+(test (eval-2 (varp "a") (list (cons "a" #t))) #t)
+(test (eval-2 (varp "a") (list (cons "a" #f))) #f)
+(test (eval-2 (notp (varp "a")) (list (cons "a" #t))) #f)
+(test (eval-2 (andp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #t))) #t)
+(test (eval-2 (andp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #f))) #f)
+(test (eval-2 (andp (varp "a") (varp "b")) (list (cons "a" #f) (cons "b" #t))) #f)
+(test (eval-2 (orp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #t))) #t)
+(test (eval-2 (orp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #f))) #t)
+(test (eval-2 (orp (varp "a") (varp "b")) (list (cons "a" #f) (cons "b" #f))) #f)
+(test (eval-2 (andp (varp "a") (orp (varp "a") (varp "b"))) (list (cons "a" #t) (cons "b" #f))) #t)
+(test/exn (eval-2 (varp "a") (list (cons "b" #t))) "not defined in environment")
+(test/exn (eval-2 (varp "a") (list )) "not defined in environment")
+
+
+; TODO: fix this
 ;; simplify-negations-2 :: Prop -> Prop
+;; simplifica las negaciones de una proposición usando fold-prop, aplicando las siguientes reglas:
+;; ~(~p) = p ; ~(p ^ q) = ~p v ~q ; ~(p v q) = ~p ^ ~q
+(define (simplify-negations-2 prop)
+    ((fold-prop 
+        (lambda (v) (varp v)) ; var-f
+        (lambda (p1 p2) (andp p1 p2)) ; and-f
+        (lambda (p1 p2) (orp p1 p2)) ; or-f
+        (lambda (p) (match p
+                        [(notp p1) p1]
+                        [(andp p1 p2) (orp (notp p1) (notp p2))]
+                        [(orp p1 p2) (andp (notp p1) (notp p2))]
+                        [else (notp p)])) ; not-f
+    ) prop))
+
+(test (simplify-negations-2 (notp (notp (varp "a")))) (varp "a"))
+(test (simplify-negations-2 (notp (andp (varp "a") (varp "b")))) (orp (notp (varp "a")) (notp (varp "b"))))
+(test (simplify-negations-2 (notp (orp (varp "a") (varp "b")))) (andp (notp (varp "a")) (notp (varp "b"))))
+(test (simplify-negations-2 (notp (notp (andp (varp "a") (varp "b"))))) (andp (varp "a") (varp "b")))
+(test (simplify-negations-2 (notp (notp (orp (varp "a") (varp "b"))))) (orp (varp "a") (varp "b")))
+(test (simplify-negations-2 (notp (orp (notp (varp "a")) (varp "b")))) (andp (notp (notp (varp "a"))) (notp (varp "b"))))
 
 ;; distribute-and-2 :: Prop -> Prop
+
