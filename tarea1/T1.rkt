@@ -179,14 +179,18 @@
 #| Parte B |#
 
 ;; distribute-and :: Prop -> Prop
+
 ;; distribuye los ands en una proposición, aplicando las siguientes reglas:
-;; p ^ (q v r) = (p ^ q) v (p ^ r) ; (p v q) ^ r = (p ^ r) v (q ^ r)
+;; (p v q) ^ r = (p ^ r) v (q ^ r) ; p ^ (q v r) = (p ^ q) v (p ^ r)
+;; distribuye por la derecha primero.
 (define (distribute-and prop)
     (match prop
         [(varp p) prop]
         [(notp (varp p)) prop]
+
+        [(andp (orp p1 p2) p3) (orp (distribute-and (andp p1 p3)) (distribute-and (andp p2 p3)))] ; (p v q) ^ r = (p ^ r) v (q ^ r)        
         [(andp p1 (orp p2 p3)) (orp (distribute-and (andp p1 p2)) (distribute-and (andp p1 p3)))] ; p ^ (q v r) = (p ^ q) v (p ^ r)
-        [(andp (orp p1 p2) p3) (orp (distribute-and (andp p1 p3)) (distribute-and (andp p2 p3)))] ; (p v q) ^ r = (p ^ r) v (q ^ r)
+
         [(andp p1 p2) (andp (distribute-and p1) (distribute-and p2))]
         [(orp p1 p2) (orp (distribute-and p1) (distribute-and p2))]
     )
@@ -197,7 +201,10 @@
 (test (distribute-and (andp (varp "a") (varp "b"))) (andp (varp "a") (varp "b")))
 (test (distribute-and (orp (varp "a") (varp "b"))) (orp (varp "a") (varp "b")))
 (test (distribute-and (notp (varp "a"))) (notp (varp "a")))
-(test (distribute-and (andp (notp (varp "a")) (orp (varp "b") (varp "c")))) (orp (andp (notp (varp "a")) (varp "b")) (andp (notp (varp "a")) (varp "c"))))
+(test 
+    (distribute-and (andp (notp (varp "a")) (orp (varp "b") (varp "c"))))   
+    (orp (andp (notp (varp "a")) (varp "b")) (andp (notp (varp "a")) (varp "c")))
+)
 
 
 #| Parte C |#
@@ -225,16 +232,30 @@
 
 #| Parte D |#
 
+;; simplify :: Prop -> Prop
+;; simplifica una proposición (1 paso), simplificando primero las negaciones y luego distribuyendo los ands
+;; simplified = distribute-and (simplify-negations prop)
+
+
+
 ;; DNF :: Prop -> Prop
 ;; devuelve la forma normal disyuntiva de una proposición
 (define (DNF prop)
-    (let ((simplify-all-negations (apply-until simplify-negations (lambda (p1 p2) (equal? p1 p2)))))
-        (let ((distribute-all-ands (apply-until distribute-and (lambda (p1 p2) (equal? p1 p2)))))
-            (distribute-all-ands (simplify-all-negations prop)))))
+    (define (simplify prop)
+        (distribute-and (simplify-negations prop)))
+    ((apply-until simplify (lambda (p1 p2) (equal? p1 p2))) prop))
 
 (test (DNF (andp (varp "a") (orp (varp "b") (varp "c"))))
     (orp (andp (varp "a") (varp "b")) (andp (varp "a") (varp "c"))))
-; (test (DNF (notp    
+(test 
+    (DNF (andp (orp (varp "a") (varp "b")) (orp (varp "c") (varp "d"))))
+    (orp
+        (orp (andp (varp "a") (varp "c"))
+            (andp (varp "a") (varp "d")))
+        (orp (andp (varp "b") (varp "c"))
+            (andp (varp "b") (varp "d")))
+    )
+)
 
 
 #| P3 |#
