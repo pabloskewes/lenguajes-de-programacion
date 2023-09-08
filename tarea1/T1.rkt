@@ -183,11 +183,14 @@
 ;; p ^ (q v r) = (p ^ q) v (p ^ r) ; (p v q) ^ r = (p ^ r) v (q ^ r)
 (define (distribute-and prop)
     (match prop
-        [(andp p1 (orp p2 p3)) (orp (distribute-and (andp p1 p2)) (distribute-and (andp p1 p3)))]
-        [(andp (orp p1 p2) p3) (orp (distribute-and (andp p1 p3)) (distribute-and (andp p2 p3)))]
+        [(varp p) prop]
+        [(notp (varp p)) prop]
+        [(andp p1 (orp p2 p3)) (orp (distribute-and (andp p1 p2)) (distribute-and (andp p1 p3)))] ; p ^ (q v r) = (p ^ q) v (p ^ r)
+        [(andp (orp p1 p2) p3) (orp (distribute-and (andp p1 p3)) (distribute-and (andp p2 p3)))] ; (p v q) ^ r = (p ^ r) v (q ^ r)
         [(andp p1 p2) (andp (distribute-and p1) (distribute-and p2))]
         [(orp p1 p2) (orp (distribute-and p1) (distribute-and p2))]
-        [else prop]))
+    )
+)
 
 (test (distribute-and (andp (varp "a") (orp (varp "b") (varp "c")))) (orp (andp (varp "a") (varp "b")) (andp (varp "a") (varp "c"))))
 (test (distribute-and (andp (orp (varp "a") (varp "b")) (varp "c"))) (orp (andp (varp "a") (varp "c")) (andp (varp "b") (varp "c"))))
