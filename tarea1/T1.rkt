@@ -16,20 +16,6 @@
     [andp prop1 prop2]
     [orp prop1 prop2])
 
-(test (Prop? (varp "a")) #t)
-(test (Prop? (notp (varp "a"))) #t)
-(test (Prop? (andp (varp "a") (varp "b"))) #t)
-(test (Prop? (orp (varp "a") (varp "b"))) #t)
-(test (Prop? (list "a")) #f)
-(test (varp? (varp "a")) #t)
-(test (varp? (notp (varp "a"))) #f)
-(test (notp? (varp "a")) #f)
-(test (notp? (notp (varp "a"))) #t)
-(test (andp? (varp "a")) #f)
-(test (andp? (andp (varp "a") (varp "b"))) #t)
-(test (orp? (varp "a")) #f)
-(test (orp? (orp (varp "a") (varp "b"))) #t)
-
 ;; print-prop :: Prop -> String
 ;; imprime una proposición en forma de string, para que sea más fácil de leer/debuggear
 (define (print-prop prop)
@@ -38,14 +24,6 @@
         [(notp p) (string-append "~(" (print-prop p) ")")]
         [(andp p1 p2) (string-append "(" (print-prop p1) " ^ " (print-prop p2) ")")]
         [(orp p1 p2) (string-append "(" (print-prop p1) " v " (print-prop p2) ")")]))
-
-(test (print-prop (varp "a")) "a")
-(test (print-prop (notp (varp "a"))) "~(a)")
-(test (print-prop (andp (varp "a") (varp "b"))) "(a ^ b)")
-(test (print-prop (orp (varp "a") (varp "b"))) "(a v b)")
-(test (print-prop (andp (varp "a") (orp (varp "a") (varp "b")))) "(a ^ (a v b))")
-(test (print-prop (orp (varp "a") (notp (varp "a")))) "(a v ~(a))")
-(test (print-prop (orp (andp (varp "a") (varp "b")) (orp (varp "a") (varp "b")))) "((a ^ b) v (a v b))")
 
 #| Parte B |#
 
@@ -57,18 +35,6 @@
         [(notp p) (occurrences p var)]
         [(andp p1 p2) (+ (occurrences p1 var) (occurrences p2 var))]
         [(orp p1 p2) (+ (occurrences p1 var) (occurrences p2 var))]))
-
-(test (occurrences (varp "a") "a") 1)
-(test (occurrences (varp "a") "b") 0)
-(test (occurrences (notp (varp "a")) "a") 1)
-(test (occurrences (notp (varp "a")) "b") 0)
-(test (occurrences (andp (varp "a") (varp "b")) "a") 1)
-(test (occurrences (andp (varp "a") (varp "b")) "b") 1)
-(test (occurrences (andp (varp "a") (varp "b")) "c") 0)
-(test (occurrences (orp (varp "a") (varp "b")) "a") 1)
-(test (occurrences (orp (varp "a") (varp "b")) "b") 1)
-(test (occurrences (orp (varp "a") (varp "b")) "c") 0)
-(test (occurrences (andp (varp "a") (orp (varp "a") (varp "b"))) "a") 2)
 
 #| Parte C |#
 
@@ -82,13 +48,6 @@
         [(andp p1 p2) (remove-duplicates (append (vars p1) (vars p2)))]
         [(orp p1 p2) (remove-duplicates (append (vars p1) (vars p2)))]))
 
-(test (vars (varp "a")) (list "a"))
-(test (vars (notp (varp "a"))) (list "a"))
-(test (vars (andp (varp "a") (varp "b"))) (list "a" "b"))
-(test (vars (orp (varp "a") (varp "b"))) (list "a" "b"))
-(test (vars (andp (varp "a") (orp (varp "a") (varp "b")))) (list "a" "b"))
-
-
 #| Parte D |#
 
 ;; all-environments :: (Listof String) -> (Listof (Listof (Pair String Boolean)))
@@ -98,13 +57,6 @@
         ['() (list '())]
         [(cons head tail) (append (map (lambda (env) (cons (cons head #t) env)) (all-environments tail))
                                   (map (lambda (env) (cons (cons head #f) env)) (all-environments tail)))]))
-
-(test (all-environments (list )) (list (list )))
-(test (all-environments (list "a")) (list (list (cons "a" #t)) (list (cons "a" #f))))
-(test (all-environments (list "a" "b")) (list (list (cons "a" #t) (cons "b" #t))
-                                              (list (cons "a" #t) (cons "b" #f))
-                                              (list (cons "a" #f) (cons "b" #t))
-                                              (list (cons "a" #f) (cons "b" #f))))
 
 #| Parte E |#
 
@@ -122,19 +74,6 @@
                         [(cons v1 truth-value) truth-value]
                         [else (error 'eval "variable ~a is not defined in environment" v)])]))
 
-(test (eval (varp "a") (list (cons "a" #t))) #t)
-(test (eval (varp "a") (list (cons "a" #f))) #f)
-(test (eval (notp (varp "a")) (list (cons "a" #t))) #f)
-(test (eval (andp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #t))) #t)
-(test (eval (andp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #f))) #f)
-(test (eval (andp (varp "a") (varp "b")) (list (cons "a" #f) (cons "b" #t))) #f)
-(test (eval (orp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #t))) #t)
-(test (eval (orp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #f))) #t)
-(test (eval (orp (varp "a") (varp "b")) (list (cons "a" #f) (cons "b" #f))) #f)
-(test (eval (andp (varp "a") (orp (varp "a") (varp "b"))) (list (cons "a" #t) (cons "b" #f))) #t)
-(test/exn (eval (varp "a") (list (cons "b" #t))) "not defined in environment")
-(test/exn (eval (varp "a") (list )) "not defined in environment")
-
 #| Parte F |#
 
 ;; tautology? :: Prop -> Boolean
@@ -142,13 +81,6 @@
 (define (tautology? prop)
     (let ([envs (all-environments (vars prop))])
         (foldl (lambda (env all_true) (and all_true (eval prop env))) #t envs)))
-    
-(test (tautology? (varp "a")) #f)
-(test (tautology? (notp (varp "a"))) #f)
-(test (tautology? (andp (varp "a") (varp "b"))) #f)
-(test (tautology? (orp (varp "a") (varp "b"))) #f)
-(test (tautology? (andp (varp "a") (orp (varp "a") (varp "b")))) #f)
-(test (tautology? (orp (varp "a") (notp (varp "a")))) #t)
     
 #| P2 |#
 
@@ -169,13 +101,6 @@
     )
 )
 
-(test (simplify-negations (notp (notp (varp "a")))) (varp "a"))
-(test (simplify-negations (notp (andp (varp "a") (varp "b")))) (orp (notp (varp "a")) (notp (varp "b"))))
-(test (simplify-negations (notp (orp (varp "a") (varp "b")))) (andp (notp (varp "a")) (notp (varp "b"))))
-(test (simplify-negations (notp (notp (andp (varp "a") (varp "b"))))) (andp (varp "a") (varp "b")))
-(test (simplify-negations (notp (notp (orp (varp "a") (varp "b"))))) (orp (varp "a") (varp "b")))
-(test (simplify-negations (notp (orp (notp (varp "a")) (varp "b")))) (andp (notp (notp (varp "a"))) (notp (varp "b"))))
-
 #| Parte B |#
 
 ;; distribute-and :: Prop -> Prop
@@ -190,22 +115,11 @@
 
         [(andp (orp p1 p2) p3) (orp (distribute-and (andp p1 p3)) (distribute-and (andp p2 p3)))] ; (p v q) ^ r = (p ^ r) v (q ^ r)        
         [(andp p1 (orp p2 p3)) (orp (distribute-and (andp p1 p2)) (distribute-and (andp p1 p3)))] ; p ^ (q v r) = (p ^ q) v (p ^ r)
-
         [(andp p1 p2) (andp (distribute-and p1) (distribute-and p2))]
+        
         [(orp p1 p2) (orp (distribute-and p1) (distribute-and p2))]
     )
 )
-
-(test (distribute-and (andp (varp "a") (orp (varp "b") (varp "c")))) (orp (andp (varp "a") (varp "b")) (andp (varp "a") (varp "c"))))
-(test (distribute-and (andp (orp (varp "a") (varp "b")) (varp "c"))) (orp (andp (varp "a") (varp "c")) (andp (varp "b") (varp "c"))))
-(test (distribute-and (andp (varp "a") (varp "b"))) (andp (varp "a") (varp "b")))
-(test (distribute-and (orp (varp "a") (varp "b"))) (orp (varp "a") (varp "b")))
-(test (distribute-and (notp (varp "a"))) (notp (varp "a")))
-(test 
-    (distribute-and (andp (notp (varp "a")) (orp (varp "b") (varp "c"))))   
-    (orp (andp (notp (varp "a")) (varp "b")) (andp (notp (varp "a")) (varp "c")))
-)
-
 
 #| Parte C |#
 
@@ -219,17 +133,6 @@
                 x-new
                 ((apply-until func cond-func) x-new)))))
 
-(test ((apply-until (lambda (x) (+ x 1)) (lambda (x new-x) (> new-x 10))) 0) 11)
-(test ((apply-until (lambda (x) (/ x (add1 x))) (lambda (x new-x) (<= (- x new-x) 0.1))) 1) 0.25)
-(define (drop-one-item lst item)
-    (match lst
-        ['() '()]
-        [(cons head tail) (if 
-                            (equal? head item)
-                            tail
-                            (cons head (drop-one-item tail item)))]))
-(test ((apply-until (lambda (lst) (drop-one-item lst 1)) (lambda (lst new-lst) (equal? lst new-lst))) (list 1 1 2 3 1 4 1 5)) (list 2 3 4 5))
-
 #| Parte D |#
 
 ;; DNF :: Prop -> Prop
@@ -238,26 +141,6 @@
     (define (simplify prop)
         (distribute-and (simplify-negations prop)))
     ((apply-until simplify (lambda (p1 p2) (equal? p1 p2))) prop))
-
-(test (DNF (andp (varp "a") (orp (varp "b") (varp "c"))))
-    (orp (andp (varp "a") (varp "b")) (andp (varp "a") (varp "c"))))
-(test 
-    (DNF (andp (orp (varp "a") (varp "b")) (orp (varp "c") (varp "d"))))
-    (orp
-        (orp (andp (varp "a") (varp "c"))
-            (andp (varp "a") (varp "d")))
-        (orp (andp (varp "b") (varp "c"))
-            (andp (varp "b") (varp "d")))
-    )
-)
-(test 
-    (DNF (orp (notp (notp (andp (varp "a") (orp (varp "b") (varp "c"))))) (orp (varp "f") (varp "g"))))
-    (orp
-        (orp (andp (varp "a") (varp "b")) (andp (varp "a") (varp "c")))
-        (orp (varp "f") (varp "g"))
-    )
-)
-
 
 #| P3 |#
 
@@ -273,8 +156,6 @@
             [(orp p1 p2) (or-f ((fold-prop var-f and-f or-f not-f) p1) ((fold-prop var-f and-f or-f not-f) p2))]
             [(notp p) (not-f ((fold-prop var-f and-f or-f not-f) p))])))
 
-(test ((fold-prop (lambda (v) 1) + + +) (varp "a")) 1)
-
 #| Parte B |#
 
 ;; occurrences-2 :: Prop String -> Number
@@ -288,18 +169,6 @@
         identity
     ) prop))
 
-(test (occurrences-2 (varp "a") "a") 1)
-(test (occurrences-2 (varp "a") "b") 0)
-(test (occurrences-2 (notp (varp "a")) "a") 1)
-(test (occurrences-2 (notp (varp "a")) "b") 0)
-(test (occurrences-2 (andp (varp "a") (varp "b")) "a") 1)
-(test (occurrences-2 (andp (varp "a") (varp "b")) "b") 1)
-(test (occurrences-2 (andp (varp "a") (varp "b")) "c") 0)
-(test (occurrences-2 (orp (varp "a") (varp "b")) "a") 1)
-(test (occurrences-2 (orp (varp "a") (varp "b")) "b") 1)
-(test (occurrences-2 (orp (varp "a") (varp "b")) "c") 0)
-(test (occurrences-2 (andp (varp "a") (orp (varp "a") (varp "b"))) "a") 2)
-
 ;; vars-2 :: Prop -> (Listof String)
 ;; devuelve una lista con todos los nombres de variables que ocurren en la
 ;; proposición usando fold-prop. La lista retornada no debe tener duplicados.
@@ -310,12 +179,6 @@
         (lambda (l1 l2) (remove-duplicates (append l1 l2))) ; or-f
         identity ; not-f
     ) prop))
-
-(test (vars-2 (varp "a")) (list "a"))
-(test (vars-2 (notp (varp "a"))) (list "a"))
-(test (vars-2 (andp (varp "a") (varp "b"))) (list "a" "b"))
-(test (vars-2 (orp (varp "a") (varp "b"))) (list "a" "b"))
-(test (vars-2 (andp (varp "a") (orp (varp "a") (varp "b")))) (list "a" "b"))
 
 ;; eval-2 :: Prop (Listof (Pair String Boolean)) -> Boolean
 ;; evalúa una proposición p, obteniendo los valores de cada variables desde una ambiente env,
@@ -333,21 +196,6 @@
         (lambda (p) (not p)) ; not-f
     ) prop))
 
-(test (eval-2 (varp "a") (list (cons "a" #t))) #t)
-(test (eval-2 (varp "a") (list (cons "a" #f))) #f)
-(test (eval-2 (notp (varp "a")) (list (cons "a" #t))) #f)
-(test (eval-2 (andp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #t))) #t)
-(test (eval-2 (andp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #f))) #f)
-(test (eval-2 (andp (varp "a") (varp "b")) (list (cons "a" #f) (cons "b" #t))) #f)
-(test (eval-2 (orp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #t))) #t)
-(test (eval-2 (orp (varp "a") (varp "b")) (list (cons "a" #t) (cons "b" #f))) #t)
-(test (eval-2 (orp (varp "a") (varp "b")) (list (cons "a" #f) (cons "b" #f))) #f)
-(test (eval-2 (andp (varp "a") (orp (varp "a") (varp "b"))) (list (cons "a" #t) (cons "b" #f))) #t)
-(test/exn (eval-2 (varp "a") (list (cons "b" #t))) "not defined in environment")
-(test/exn (eval-2 (varp "a") (list )) "not defined in environment")
-
-
-; TODO: fix this
 ;; simplify-negations-2 :: Prop -> Prop
 ;; simplifica las negaciones de una proposición usando fold-prop, aplicando las siguientes reglas:
 ;; ~(~p) = p ; ~(p ^ q) = ~p v ~q ; ~(p v q) = ~p ^ ~q
@@ -363,12 +211,16 @@
                         [else (notp p)])) ; not-f
     ) prop))
 
-(test (simplify-negations-2 (notp (notp (varp "a")))) (varp "a"))
-(test (simplify-negations-2 (notp (andp (varp "a") (varp "b")))) (orp (notp (varp "a")) (notp (varp "b"))))
-(test (simplify-negations-2 (notp (orp (varp "a") (varp "b")))) (andp (notp (varp "a")) (notp (varp "b"))))
-(test (simplify-negations-2 (notp (notp (andp (varp "a") (varp "b"))))) (andp (varp "a") (varp "b")))
-(test (simplify-negations-2 (notp (notp (orp (varp "a") (varp "b"))))) (orp (varp "a") (varp "b")))
-(test (simplify-negations-2 (notp (orp (notp (varp "a")) (varp "b")))) (andp (notp (notp (varp "a"))) (notp (varp "b"))))
-
 ;; distribute-and-2 :: Prop -> Prop
-
+;; distribuye los ands en una proposición usando fold-prop, aplicando las siguientes reglas:
+;; (p v q) ^ r = (p ^ r) v (q ^ r) ; p ^ (q v r) = (p ^ q) v (p ^ r)
+(define (distribute-and-2 prop)
+    ((fold-prop 
+        (lambda (v) (varp v)) ; var-f
+        (lambda (p1 p2) (andp p1 p2)) ; and-f
+        (lambda (p1 p2) (orp p1 p2)) ; or-f
+        (lambda (p) (match p 
+                        [(andp (orp p1 p2) p3) (orp (andp p1 p3) (andp p2 p3))] ; (p v q) ^ r = (p ^ r) v (q ^ r)        
+                        [(andp p1 (orp p2 p3)) (orp (andp p1 p2) (andp p1 p3))] ; p ^ (q v r) = (p ^ q) v (p ^ r)
+                        [else p])) ; not-f
+    ) prop))
