@@ -31,7 +31,7 @@
   ;; identificador
   (id x)
   ;; funcion con múltiples parámetros
-  (fun params body)
+  (fun params* body)
   ;; aplicación con múltiples argumentos
   (app f-name args))
   
@@ -77,7 +77,7 @@
     [(list 'if c t e) (ifc (parse c) (parse t) (parse e))]
     ; se deja el error por mientras por si acaso
     [x #:when (symbol? x) (id x)]
-    [(list 'fun (list params ...) body) (fun params (parse body))]
+    [(list 'fun (list params* ...) body) (fun params* (parse body))]
     [(list f-name args ...) (app (parse f-name) (map parse args))]
 
     [else (error 'parse "invalid s-expr: ~a" s-expr)]))
@@ -108,10 +108,14 @@
 
 ;; PARTE 1C, 1G
 
+;; values of expressions
+;; <value> ::= (numV <num>)
+;;          | (boolV <bool>) 
+;;          | (closureV <sym> <expr> <env>)
 (deftype Val
   (numV n)
   (boolV b)
-  (closureV id body env))
+  (closureV params* body env))
 
 
 ;; ambiente de sustitución diferida
@@ -128,6 +132,23 @@
 ;; es lo mismo que definir extend-env así:
 ;; (concepto técnico 'eta expansion')
 (define (extend-env id val env) (aEnv id val env))
+
+;; extend-env* :: (listof (cons <sym> <val>)) Env -> Env
+;; Recibe una lista de pares (identificador, valor) y un ambiente, y retorna un
+;; nuevo ambiente que extiende al ambiente dado con los pares de la lista.
+(define extend-env*
+  (lambda (ids-vals env)
+    (match ids-vals
+      [(list) env]
+      [(cons (cons id val) rest) (extend-env* rest (extend-env id val env))])))
+
+(test (extend-env* (list) empty-env) empty-env)
+(test (extend-env* (list (cons 'x (numV 1)) (cons 'y (numV 2))) empty-env)
+      (aEnv 'y (numV 2) (aEnv 'x (numV 1) empty-env)))
+(define anEnv (extend-env* (list (cons 'x (numV 1)) (cons 'y (numV 2))) empty-env))
+(test (extend-env* (list (cons 'z (numV 3))) anEnv)
+      (aEnv 'z (numV 3) (aEnv 'y (numV 2) (aEnv 'x (numV 1) empty-env))))
+
 
 (define (env-lookup x env)
   (match env
@@ -176,7 +197,41 @@
 ;; Evalúa una expresión en un ambiente dado.
 (define (eval expr env)
   (match expr
-    [(num n) n]
+    [(num n) (numV n)]
+    [(add l r) (num+ (eval l env) (eval r env)) ]
+    [(sub l r) (num- (eval l env) (eval r env)) ]
+    [(mul l r) (num* (eval l env) (eval r env)) ]
+    [(tt) (boolV #t)]
+    [(ff) (boolV #f)]
+    [(leq l r) (num<= (eval l env) (eval r env))]
+    [(ifc c t e) 
+     (define boolv (eval c env))
+     (def (boolV b) boolv)
+     (if b (eval t env) (eval e env))]
+    [(id x) (env-lookup x env)]
+    [(fun params* body) (closureV params* body env)]
+    [(app f-name args) 
+     (def (closureV the-args the-body the-claus-env) (eval f-name env))
+     (def the-ext-env (extend-env* (map cons the-args (map (lambda (arg) (eval arg env)) args)) the-claus-env))
+     (eval the-body the-ext-env)]))    
+
+(test (eval (num 1) empty-env) (numV 1))
+(test (eval (add (num 1) (num 2)) empty-env) (numV 3))
+(test (eval (sub (num 1) (num 2)) empty-env) (numV -1))
+(test (eval (mul (num 1) (num 2)) empty-env) (numV 2))
+(test (eval (tt) empty-env) (boolV #t))
+(test (eval (ff) empty-env) (boolV #f))
+(test (eval (leq (num 1) (num 2)) empty-env) (boolV #t))
+(test (eval (leq (num 2) (num 1)) empty-env) (boolV #f))
+(test (eval (ifc (tt) (num 1) (num 2)) empty-env) (numV 1))
+(test (eval (ifc (ff) (num 1) (num 2)) empty-env) (numV 2))
+(test (eval (id 'x) (extend-env* (list (cons 'x (numV 1))) empty-env)) (numV 1))
+(test (eval (fun (list 'x 'y) (add (id 'x) (id 'y))) empty-env)
+      (closureV (list 'x 'y) (add (id 'x) (id 'y)) empty-env))
+(test (eval (app (fun (list 'x 'y) (add (id 'x) (id 'y))) (list (num 1) (num 2))) empty-env)
+      (numV 3))
+(test/exn (eval (add (num 1) (tt)) empty-env) "invalid operands")
+(test/exn (eval (add (num 1) (id 'x)) empty-env) "free identifier")
 
 
 ;; PARTE 2A
