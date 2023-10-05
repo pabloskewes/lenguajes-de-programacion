@@ -37,6 +37,13 @@
   (fun params* body)
   (app f-name args)
 )
+
+;: Comentario: se dieron vuelta las posiciones de las implementaciones de los
+;: constructores de tuplas/proyecciones y funciones/aplicaciones, porque, si bien
+;: en el enunciado se va pidiendo su implementación en ese orden, en el código
+;: tiene más sentido poner las tuplas primero ya que el matcheo de las funciones
+;: aplica para cualquier símbolo, y el de las tuplas sólo para 'tuple y 'proj, por
+;: lo que al cambiarlo de lugar, es más fácil mantener el mismo orden para los matcheos
   
 
 (test (Expr? (num 1)) #t)
@@ -238,7 +245,6 @@
     [(proj (tupl exprs*) (num n)) 
      (def (tuplV vals*) (eval (tupl exprs*) env))
      (list-ref vals* (- n 1))]
-
     ; p1.b
     [(id x) #:when (symbol? x) (env-lookup x env)]
     [(fun params* body) (closureV params* body env)]
@@ -252,6 +258,11 @@
 (test (eval (add (num 1) (num 2)) empty-env) (numV 3))
 (test (eval (sub (num 1) (num 2)) empty-env) (numV -1))
 (test (eval (mul (num 1) (num 2)) empty-env) (numV 2))
+; core + parse
+(test (eval (parse '1) empty-env) (numV 1))
+(test (eval (parse '(+ 1 2)) empty-env) (numV 3))
+(test (eval (parse '(- 1 2)) empty-env) (numV -1))
+(test (eval (parse '(* 1 2)) empty-env) (numV 2))
 ; tests p1.a
 (test (eval (tt) empty-env) (boolV #t))
 (test (eval (ff) empty-env) (boolV #f))
@@ -259,6 +270,13 @@
 (test (eval (leq (num 2) (num 1)) empty-env) (boolV #f))
 (test (eval (ifc (tt) (num 1) (num 2)) empty-env) (numV 1))
 (test (eval (ifc (ff) (num 1) (num 2)) empty-env) (numV 2))
+; p1.a + parse
+(test (eval (parse 'true) empty-env) (boolV #t))
+(test (eval (parse 'false) empty-env) (boolV #f))
+(test (eval (parse '(<= 1 2)) empty-env) (boolV #t))
+(test (eval (parse '(<= 2 1)) empty-env) (boolV #f))
+(test (eval (parse '(if true 1 2)) empty-env) (numV 1))
+(test (eval (parse '(if false 1 2)) empty-env) (numV 2))
 ; tests p1.b
 (test (eval (id 'x) (extend-env* (list (cons 'x (numV 1))) empty-env)) (numV 1))
 (test (eval (fun (list 'x 'y) (add (id 'x) (id 'y))) empty-env)
@@ -267,11 +285,24 @@
       (numV 3))
 (test/exn (eval (add (num 1) (tt)) empty-env) "invalid operands")
 (test/exn (eval (add (num 1) (id 'x)) empty-env) "free identifier")
+; p1.b + parse
+(test (eval (parse 'x) (extend-env* (list (cons 'x (numV 1))) empty-env)) (numV 1))
+(test (eval (parse '(fun (x y) (+ x y))) empty-env)
+      (closureV (list 'x 'y) (add (id 'x) (id 'y)) empty-env))
+(test (eval (parse '((fun (x y) (+ x y)) 1 2)) empty-env) (numV 3))
+(test/exn (eval (parse '(+ 1 true)) empty-env) "invalid operands")
+(test/exn (eval (parse '(+ 1 x)) empty-env) "free identifier")
 ; tests p1.g
 (test (eval (tupl (list (num 1) (num 2) (num 3))) empty-env)
       (tuplV (list (numV 1) (numV 2) (numV 3))))
 (test (eval (proj (tupl (list (num 1) (num 2) (num 3))) (num 1)) empty-env)
       (numV 1))
+; p1.g + parse
+(test (eval (parse '(tuple 1 2 3)) empty-env)
+      (tuplV (list (numV 1) (numV 2) (numV 3))))
+(test (eval (parse '(proj (tuple 1 2 3) 1)) empty-env)
+      (numV 1))
+
 
 ;; PARTE 2A
 
