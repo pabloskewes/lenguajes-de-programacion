@@ -305,10 +305,49 @@
 
 
 ;; PARTE 2A
+;; Funciones globables dentro del lenguaje reconocido por el intérprete
 
-(define swap* '???)
+;; id* :: (A -> A)
+;; Recibe un elemento del lenguaje y lo retorna. (Función identidad dentro del lenguaje)
+(define id* (closureV '(x) (parse 'x) empty-env))
+
+(define id-program (parse '{+ 1 (id 2)}))
+
+(test (eval id-program (extend-env 'id id* empty-env)) (numV 3))
+(test/exn (eval id-program empty-env) "free identifier")
+
+;; swap* :: (A B -> C) -> (B A -> C)
+;; Recibe una función (dentro del lenguaje) que recibe dos argumentos y retorna un valor,
+;  y retorna una función que recibe dos argumentos en el orden inverso y 
+; retorna el mismo valor, donde esta última función está dentro del lenguaje también.
+; (define (swap* leng-func)
+;   (def (closureV params* body env) leng-func)
+;   (def (closureV (re
+
+
+; (define swap-program (parse '{swap (fun (x y) (- x y))}))
+
+; (test (eval swap-program (extend-env 'swap swap* empty-env))
+
+
+
+
+;; curry* :: ((A B -> C) -> (A -> B -> C))
+;; Recibe una función que recibe dos argumentos y retorna un valor, y retorna una
+;; función que recibe un argumento y retorna una función que recibe un argumento
+;; y retorna el mismo valor dentro del lenguaje.
 (define curry* '???)
+
+;; uncurry* :: ((A -> B -> C) -> (A B -> C))
+;; Recibe una función que recibe un argumento y retorna una función que recibe un
+;; argumento y retorna un valor, y retorna una función que recibe dos argumentos
+;; y retorna el mismo valor dentro del lenguaje.
 (define uncurry* '???)
+
+;; partial* :: ((A B -> C) A -> (B -> C))
+;; Recibe una función que recibe dos argumentos A y B y retorna un valor C, y lo
+;; transforma en una función que recibe un argumento B y retorna un valor C, que
+;; es el resultado de aplicar la función original con el argumento A fijo.
 (define partial* '???)
 
 ;; PARTE 2B
