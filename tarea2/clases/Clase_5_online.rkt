@@ -8,7 +8,7 @@
          | (add <expr> <expr>)
          | (sub <expr> <expr>)
          | (if0 <expr> <expr> <expr>)
-         | (with <id> <expr> <expr>)         
+         | (with <id> <expr> <expr>)
 |#
 (deftype Expr
   (num n)

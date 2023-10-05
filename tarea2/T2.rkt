@@ -15,6 +15,8 @@
         | (id <sym>)
         | (fun ListOf[<sym>] <expr>)
         | (app <expr> ListOf[<expr>])
+        | (tupl ListOf[<num>])
+        | (proj <expr> <num>)
 |#
 (deftype Expr
   ;; core
@@ -22,18 +24,19 @@
   (add l r)
   (sub l r)
   (mul l r)
-  ;; booleanos
+  ;; p1.a (booleanos y condicionales)
   (tt)
   (ff)
   (leq l r)
-  ;; condicion
   (ifc c t e)
-  ;; identificador
+  ;; p1.f (tuplas)
+  (tupl nums*)
+  (proj e n)
+  ;; p1.b (funciones con múltiples parámetros)
   (id x)
-  ;; funcion con múltiples parámetros
   (fun params* body)
-  ;; aplicación con múltiples argumentos
-  (app f-name args))
+  (app f-name args)
+)
   
 
 (test (Expr? (num 1)) #t)
@@ -48,6 +51,8 @@
 (test (Expr? (fun (list 'x 'y) (add (id 'x) (id 'y)))) #t)
 (test (Expr? (app (id 'my-function) (list (num 1) (num 2) (num 3)))) #t)
 (test (Expr? (fun (list 'x 'y 'z) (mul (sub (id 'x) (id 'y)) (id 'z)))) #t)
+(test (Expr? (tupl (list (num 1) (num 2) (num 3)))) #t)
+(test (Expr? (proj (tupl (list (num 1) (num 2) (num 3))) (num 1))) #t)
 
 
 ;; concrete syntax
@@ -60,29 +65,39 @@
             | 'false
             | (list '<= <s-expr> <s-expr>)
             | (list 'if <s-expr> <s-expr> <s-expr>)
-
+            | <sym>
+            | (list 'fun ListOf[<sym>] <s-expr>)
+            | (list <sym> ListOf[<s-expr>])
+            | (list 'tuple ListOf[<num>])
+            | (list 'proj <s-expr> <num>)
 |#
 
 ;; parse :: s-expr -> Expr
 ;; converts s-exprs into Exprs
 (define (parse s-expr)
   (match s-expr
+    ; core 
     [n #:when (number? n) (num n)]
     [(list '+ l r) (add (parse l) (parse r))]
     [(list '- l r) (sub (parse l) (parse r))]
     [(list '* l r) (mul (parse l) (parse r))]
+    ; p1.a
     ['true (tt)]
     ['false (ff)]
     [(list '<= l r) (leq (parse l) (parse r))]
     [(list 'if c t e) (ifc (parse c) (parse t) (parse e))]
-    ; se deja el error por mientras por si acaso
+    ; p1.f
+    [(list 'tuple nums ...) (tupl (map parse nums))]
+    [(list 'proj e n) (proj (parse e) (parse n))]
+    ; p1.b
     [x #:when (symbol? x) (id x)]
     [(list 'fun (list params* ...) body) (fun params* (parse body))]
     [(list f-name args ...) (app (parse f-name) (map parse args))]
-
+    ; error para cualquier otro caso
     [else (error 'parse "invalid s-expr: ~a" s-expr)]))
   
-; tests p1.a
+
+; tests core
 (test (parse 1) (num 1))
 (test (parse (list '+ 1 2)) (add (num 1) (num 2)))
 (test (parse '(+ 7 9)) (add (num 7) (num 9)))
@@ -90,21 +105,25 @@
 (test (parse (list '+ 3 (list '- 2 1))) (add (num 3) (sub (num 2) (num 1))))
 (test (parse (list '* 10 (list '+ 1 2))) (mul (num 10) (add (num 1) (num 2))))
 (test (parse (list '* (list '+ 5 6) 7)) (mul (add (num 5) (num 6)) (num 7)))
-(test (parse (list 'if 0 1 2)) (ifc (num 0) (num 1) (num 2)))
-(test (parse (list 'if (list '- 1 2) 1 2)) (ifc (sub (num 1) (num 2)) (num 1) (num 2)))
+; tests p1.a
 (test (parse 'true) (tt))
 (test (parse 'false) (ff))
 (test (parse (list '<= 1 2)) (leq (num 1) (num 2)))
 (test (parse (list '<= 1 (list '+ 1 2))) (leq (num 1) (add (num 1) (num 2))))
 (test (parse (list '<= (list '+ 1 2) 1)) (leq (add (num 1) (num 2)) (num 1)))
 (test (parse '(<= 3 5)) (leq (num 3) (num 5)))
+(test (parse (list 'if 0 1 2)) (ifc (num 0) (num 1) (num 2)))
+(test (parse (list 'if (list '- 1 2) 1 2)) (ifc (sub (num 1) (num 2)) (num 1) (num 2)))
 (test (parse '(if (<= 3 5) 2 4)) (ifc (leq (num 3) (num 5)) (num 2) (num 4)))
 (test (parse '(if true 2 4)) (ifc (tt) (num 2) (num 4)))
 ; tests p1.b
 (test (parse 'x) (id 'x))
 (test (parse '(fun (x y) (+ x y))) (fun (list 'x 'y) (add (id 'x) (id 'y))))
-(test (parse '(my-function 2 3 4)) (app (id 'my-function) (list (num 2) (num 3) (num 4)))) 
-
+(test (parse '(my-function 2 3 4)) (app (id 'my-function) (list (num 2) (num 3) (num 4))))
+; tests p1.f
+(test (parse '(tuple 1 2 3)) (tupl (list (num 1) (num 2) (num 3))))
+(test (parse '(proj (tuple 1 2 3) 1)) (proj (tupl (list (num 1) (num 2) (num 3))) (num 1))) 
+(test (parse '(proj (tuple 1 2 3) 2)) (proj (tupl (list (num 1) (num 2) (num 3))) (num 2)))
 
 ;; PARTE 1C, 1G
 
@@ -112,7 +131,7 @@
 ;; <value> ::= (numV <num>)
 ;;          | (boolV <bool>) 
 ;;          | (closureV <sym> <expr> <env>)
-(deftype Val
+(deftype Val 
   (numV n)
   (boolV b)
   (closureV params* body env))
