@@ -320,23 +320,39 @@
 ;; Recibe una función (dentro del lenguaje) que recibe dos argumentos y retorna un valor,
 ;  y retorna una función que recibe dos argumentos en el orden inverso y 
 ; retorna el mismo valor, donde esta última función está dentro del lenguaje también.
-; (define (swap* leng-func)
-;   (def (closureV params* body env) leng-func)
-;   (def (closureV (re
+(define swap* 
+  (closureV '(swap) (fun '(x y) (app (id 'swap) (list (id 'y) (id 'x)))) empty-env))
 
+; f(x,y) = x - y
+(test (eval 
+(parse '((swap (fun (x y) (- x y))) 2 1)) ; source code
+(extend-env 'swap swap* empty-env) ; environment
+) (numV -1)) ; expected result
 
-; (define swap-program (parse '{swap (fun (x y) (- x y))}))
+; f(x,y) = 2x + y
+(test (eval
+(parse '((swap (fun (x y) (+ (* 2 x) y))) 2 1)) ; source code
+(extend-env 'swap swap* empty-env)) ; environment
+      (numV 4)) ; expected result
 
-; (test (eval swap-program (extend-env 'swap swap* empty-env))
-
-
+; function without env
+(test/exn (eval 
+(parse '((swap (fun (x y) (- x y))) 2 1)) ; source code
+empty-env) "free identifier")
 
 
 ;; curry* :: ((A B -> C) -> (A -> B -> C))
 ;; Recibe una función que recibe dos argumentos y retorna un valor, y retorna una
 ;; función que recibe un argumento y retorna una función que recibe un argumento
 ;; y retorna el mismo valor dentro del lenguaje.
-(define curry* '???)
+(define curry*
+  (closureV '(curry) (fun '(f) (fun '(x) (fun '(y) (app (app (id 'f) (list (id 'x))) (list (id 'y)))))) empty-env))
+
+; f(x. y, z) = x + y + z
+(test (eval
+(parse '(((curry (fun (x y z) (+ (+ x y) z))) 1) 2 3)) ; source code
+(extend-env 'curry curry* empty-env)) ; environment
+      (numV 6)) ; expected result
 
 ;; uncurry* :: ((A -> B -> C) -> (A B -> C))
 ;; Recibe una función que recibe un argumento y retorna una función que recibe un
