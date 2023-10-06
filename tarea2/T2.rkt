@@ -341,18 +341,18 @@
 empty-env) "free identifier")
 
 
-;; curry* :: ((A B -> C) -> (A -> B -> C))
+;; curry* :: (A B -> C) -> (A -> B -> C) 
 ;; Recibe una función que recibe dos argumentos y retorna un valor, y retorna una
 ;; función que recibe un argumento y retorna una función que recibe un argumento
 ;; y retorna el mismo valor dentro del lenguaje.
-(define curry*
-  (closureV '(curry) (fun '(f) (fun '(x) (fun '(y) (app (app (id 'f) (list (id 'x))) (list (id 'y)))))) empty-env))
+; (define curry*
+;   (closureV '(curry) (fun '(curry) (fun '(x) (fun '(y) (app (app (id 'f) (list (id 'x))) (list (id 'y)))))) empty-env))
 
-; f(x. y, z) = x + y + z
-(test (eval
-(parse '(((curry (fun (x y z) (+ (+ x y) z))) 1) 2 3)) ; source code
-(extend-env 'curry curry* empty-env)) ; environment
-      (numV 6)) ; expected result
+; ; f(x. y) = x + y
+; (test (eval
+; (parse '(((curry (fun (x y) (+ x y))) 2) 4)) ; source code
+; (extend-env 'curry curry* empty-env)) ; environment
+;       (numV 6)) ; expected result
 
 ;; uncurry* :: ((A -> B -> C) -> (A B -> C))
 ;; Recibe una función que recibe un argumento y retorna una función que recibe un
@@ -368,5 +368,23 @@ empty-env) "free identifier")
 
 ;; PARTE 2B
 
-;; run :: ...
-(define (run) '???)
+(define globals (list
+  (cons 'swap swap*)
+  ; (cons 'curry curry*)
+  ; (cons 'uncurry uncurry*)
+  ; (cons ' partial partial*)
+))
+
+
+;; run :: s-expr (Listof(Pair Symbol Val)) -> Val.
+(define (run s-expr globals)
+  (eval (parse s-expr) (extend-env* globals empty-env)))
+
+(test (run '1 globals) (numV 1))
+(test (run '(+ 1 2) globals) (numV 3))
+(test (run 
+  '((swap (fun (x y) (<= x y))) 1 2)
+  globals)
+  (boolV #f))
+
+
