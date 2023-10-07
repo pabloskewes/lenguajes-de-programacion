@@ -1,5 +1,5 @@
 #lang play
-(print-only-errors)
+(print-only-errors #t)
 
 ;; PARTE 1A, 1B, 1F
 
@@ -374,9 +374,20 @@ empty-env) "free identifier")
 
 ; f(x, y) = x - y
 (test (eval
-(parse '(((uncurry (fun (x) (fun (y) (- x y)))) 2 1))) ; source code
+(parse '((uncurry (fun (x) (fun (y) (- x y)))) 2 1)) ; source code
 (extend-env 'uncurry uncurry* empty-env)) ; environment
       (numV 1)) ; expected result
+
+; f(x, y) = (2x + y) <= 5
+(test (eval
+(parse '((uncurry (fun (x) (fun (y) (<= (+ (* 2 x) y) 5)))) 2 1)) ; source code
+(extend-env 'uncurry uncurry* empty-env)) ; environment
+      (boolV #t)) ; expected result
+
+; function without env
+(test/exn (eval
+(parse '((uncurry (fun (x) (fun (y) (- x y)))) 2 1)) ; source code
+empty-env) "free identifier")
 
 ;; partial* :: ((A B -> C) A -> (B -> C))
 ;; Recibe una función que recibe dos argumentos A y B y retorna un valor C, y lo
@@ -402,15 +413,15 @@ empty-env) "free identifier")
 (parse '((partial (fun (x y) (+ x y)) 2) 4)) ; source code
 empty-env) "free identifier")
 
+
 ;; PARTE 2B
 
 (define globals (list
   (cons 'swap swap*)
   (cons 'curry curry*)
-  ; (cons 'uncurry uncurry*)
+  (cons 'uncurry uncurry*)
   (cons 'partial partial*)
 ))
-
 
 ;; run :: s-expr (Listof(Pair Symbol Val)) -> Val.
 (define (run s-expr globals)
@@ -429,4 +440,12 @@ empty-env) "free identifier")
 globals) ; environment
 (boolV #t)) ; expected result
 
+(test (run
+'(((curry (fun (x y) (<= x y))) 1) 2)
+globals) ; environment
+(boolV #t)) ; expected result
 
+(test (run
+'((uncurry (fun (x) (fun (y) (<= x y)))) 1 2) ; source code
+globals) ; environment
+(boolV #t)) ; expected result
