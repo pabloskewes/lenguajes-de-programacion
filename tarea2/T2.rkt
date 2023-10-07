@@ -321,7 +321,7 @@
 ;  y retorna una función que recibe dos argumentos en el orden inverso y 
 ; retorna el mismo valor, donde esta última función está dentro del lenguaje también.
 (define swap* 
-  (closureV '(swap) (fun '(x y) (app (id 'swap) (list (id 'y) (id 'x)))) empty-env))
+  (closureV '(f) (fun '(x y) (parse '(f y x))) empty-env))
 
 ; f(x,y) = x - y
 (test (eval 
@@ -340,39 +340,75 @@
 (parse '((swap (fun (x y) (- x y))) 2 1)) ; source code
 empty-env) "free identifier")
 
-
 ;; curry* :: (A B -> C) -> (A -> B -> C) 
 ;; Recibe una función que recibe dos argumentos y retorna un valor, y retorna una
 ;; función que recibe un argumento y retorna una función que recibe un argumento
 ;; y retorna el mismo valor dentro del lenguaje.
-; (define curry*
-;   (closureV '(curry) (fun '(curry) (fun '(x) (fun '(y) (app (app (id 'f) (list (id 'x))) (list (id 'y)))))) empty-env))
+(define curry* 
+  (closureV '(f) (fun '(x) (fun '(y) (parse '(f x y)))) empty-env))
 
-; ; f(x. y) = x + y
-; (test (eval
-; (parse '(((curry (fun (x y) (+ x y))) 2) 4)) ; source code
-; (extend-env 'curry curry* empty-env)) ; environment
-;       (numV 6)) ; expected result
+; f(x, y) = x + y
+(test (eval
+(parse '(((curry (fun (x y) (+ x y))) 2) 1)) ; source code
+(extend-env 'curry curry* empty-env)) ; environment
+      (numV 3)) ; expected result
+
+; f(x, y) = (2x + y) <= 5 
+(test (eval
+(parse '(((curry (fun (x y) (<= (+ (* 2 x) y) 5))) 2) 1)) ; source code
+(extend-env 'curry curry* empty-env)) ; environment
+      (boolV #t)) ; expected result
+
+; function without env
+(test/exn (eval
+(parse '(((curry (fun (x y) (+ x y))) 2) 1)) ; source code
+empty-env) "free identifier")
 
 ;; uncurry* :: ((A -> B -> C) -> (A B -> C))
 ;; Recibe una función que recibe un argumento y retorna una función que recibe un
 ;; argumento y retorna un valor, y retorna una función que recibe dos argumentos
 ;; y retorna el mismo valor dentro del lenguaje.
-(define uncurry* '???)
+(define uncurry* 
+  ; uncurry funciona así: uncurry* (lambda (f) (lambda (a b) ((f a) b)))
+  (closureV '(f) (fun '(a b) (parse '((f a) b))) empty-env))
+
+; f(x, y) = x - y
+(test (eval
+(parse '(((uncurry (fun (x) (fun (y) (- x y)))) 2 1))) ; source code
+(extend-env 'uncurry uncurry* empty-env)) ; environment
+      (numV 1)) ; expected result
 
 ;; partial* :: ((A B -> C) A -> (B -> C))
 ;; Recibe una función que recibe dos argumentos A y B y retorna un valor C, y lo
 ;; transforma en una función que recibe un argumento B y retorna un valor C, que
 ;; es el resultado de aplicar la función original con el argumento A fijo.
-(define partial* '???)
+(define partial*
+  (closureV '(f a) (fun '(b) (parse '(f a b))) empty-env))
+
+; f(x, y) = x + y
+(test (eval
+(parse '((partial (fun (x y) (+ x y)) 2) 4)) ; source code
+(extend-env 'partial partial* empty-env)) ; environment
+      (numV 6)) ; expected result
+
+; f(x, y) = (2x + y) <= 5
+(test (eval
+(parse '((partial (fun (x y) (<= (+ (* 2 x) y) 5)) 2) 4)) ; source code
+(extend-env 'partial partial* empty-env)) ; environment
+      (boolV #f)) ; expected result
+
+; function without env
+(test/exn (eval
+(parse '((partial (fun (x y) (+ x y)) 2) 4)) ; source code
+empty-env) "free identifier")
 
 ;; PARTE 2B
 
 (define globals (list
   (cons 'swap swap*)
-  ; (cons 'curry curry*)
+  (cons 'curry curry*)
   ; (cons 'uncurry uncurry*)
-  ; (cons ' partial partial*)
+  (cons 'partial partial*)
 ))
 
 
@@ -382,9 +418,15 @@ empty-env) "free identifier")
 
 (test (run '1 globals) (numV 1))
 (test (run '(+ 1 2) globals) (numV 3))
+
 (test (run 
-  '((swap (fun (x y) (<= x y))) 1 2)
-  globals)
-  (boolV #f))
+  '((swap (fun (x y) (<= x y))) 1 2) ; source code
+  globals) ; environment
+  (boolV #f)) ; expected result
+
+(test (run
+'((partial (fun (x y) (<= x y)) 1) 2) ; source code
+globals) ; environment
+(boolV #t)) ; expected result
 
 
