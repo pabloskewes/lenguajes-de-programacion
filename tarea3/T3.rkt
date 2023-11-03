@@ -1,5 +1,5 @@
 #lang play
-
+(print-only-errors #t)
 
 #|
   Expr  ::= <num>
@@ -22,11 +22,34 @@
 
 #| BEGIN P1 |#
 
-;; Type ::= (Number <num-expr>)
+;; Type ::= numT
+;;        | (arrowT <Type> <Type>)
+(deftype Type
+  (numT)
+  (arrowT argType resType)
+)
 
+(test (Type? (numT)) #t)
+(test (Type? (arrowT (numT) (numT))) #t)
+(test (Type? (arrowT (numT) (arrowT (numT) (numT)))) #t)
+(test (Type? 10) #f)
+(test (Type? 'foo) #f)
 
-;; parse-type : s-expr -> Type  
-(define (parse-type t) '???)
+;; s-expr ::= 'Number
+;;         |  '(-> <s-expr> <s-expr>)
+
+;; parse-type : s-expr -> Type 
+;; parsea un s-expr en un Type, o falla con un error
+(define (parse-type t) 
+  (match t
+    ['Number (numT)]
+    [(list '-> arg res) (arrowT (parse-type arg) (parse-type res))]
+    [_ (error 'parse-type "invalid type: ~a" t)]))
+
+(test (parse-type 'Number) (numT))
+(test (parse-type '(-> Number Number)) (arrowT (numT) (numT)))
+(test (parse-type '(-> (-> Number Number) Number)) (arrowT (arrowT (numT) (numT)) (numT)))
+(test/exn (parse-type 'foo) "invalid type: foo")
 
 ;; parse : s-expr -> Expr
 (define (parse s)
