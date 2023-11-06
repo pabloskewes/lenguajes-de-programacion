@@ -77,8 +77,44 @@
     [(aTenv id type rest) (if (symbol=? id x) type (tenv-lookup x rest))]
     ))
 
-;; infer-type : ...
-(define (infer-type expr tenv) '???)
+;; infer-type : Expr TypeEnv -> Type
+;; infiere el tipo de una expresión, o falla con un error
+(define (infer-type expr tenv) 
+  (match expr
+    [(num n) (numT)]
+    ; [x #:when (symbol? x) (tenv-lookup x tenv)]
+    [(binop op l r) (match op
+        ['+ (match (cons (infer-type l tenv) (infer-type r tenv))
+            [(cons (numT) (numT)) (numT)]
+            [_ (error 'infer-type "invalid operands")])]
+        ['- (match (cons (infer-type l tenv) (infer-type r tenv))
+            [(cons (numT) (numT)) (numT)]
+            [_ (error 'infer-type "invalid operands")])]
+        ['* (match (cons (infer-type l tenv) (infer-type r tenv))
+            [(cons (numT) (numT)) (numT)]
+            [_ (error 'infer-type "invalid operands")])]
+        [_ (error 'infer-type "invalid operator")])]
+    [(id x) (tenv-lookup x tenv)]
+    [(fun binder binderType body) (arrowT binderType (infer-type body (extend-tenv binder binderType tenv)))]
+    [(app callee arg) (match (infer-type callee tenv)
+        [(arrowT argType resType) (match (infer-type arg tenv)
+            [argType resType]
+            [_ (error 'infer-type "invalid argument")])]
+        [_ (error 'infer-type "invalid callee")])]
+))
+
+(test (infer-type (parse 10) empty-tenv) (numT))
+(test (infer-type (parse '(+ 10 20)) empty-tenv) (numT))
+(test (infer-type (parse '(- 10 20)) empty-tenv) (numT))
+(test (infer-type (parse '(* 10 20)) empty-tenv) (numT))
+(test (infer-type (parse 'foo) (extend-tenv 'foo (numT) empty-tenv)) (numT))
+(test (infer-type (parse '(fun (x : Number) x)) empty-tenv) (arrowT (numT) (numT)))
+(test (infer-type (parse '(fun (x : Number) (+ x 1))) empty-tenv) (arrowT (numT) (numT)))
+(test (infer-type (parse '(fun (x : Number) (+ x x))) empty-tenv) (arrowT (numT) (numT)))
+(test/exn (infer-type (parse '(fun (x : Number) (+ x (fun (y : Number) y)))) empty-tenv) "invalid operands")
+(test/exn (infer-type (parse '(fun (x : Number) (+ x y))) empty-tenv) "tenv-lookup")
+
+
 
 #| END P1 |#
 
