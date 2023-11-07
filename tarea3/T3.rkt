@@ -9,6 +9,10 @@
           | <id>
           | (fun (<id> : <Type>) <Expr>)
           | (<Expr> <Expr>);
+          | (tt)
+          | (ff)
+          | (leq <Expr> <Expr>)
+          | (ifc <Expr> <Expr> <Expr>)
 |#
 (deftype Expr
   ;; core
@@ -18,7 +22,12 @@
   (id x)
   (fun binder binderType body)
   (app callee arg)
-  )
+  ;; p1.c
+  (tt)
+  (ff)
+  (leq l r)
+  (ifc condition then else)
+)
 
 #| BEGIN P1 |#
 
@@ -27,6 +36,8 @@
 (deftype Type
   (numT)
   (arrowT argType resType)
+  ;; p1.c
+  (boolT)
 )
 
 (test (Type? (numT)) #t)
@@ -34,22 +45,29 @@
 (test (Type? (arrowT (numT) (arrowT (numT) (numT)))) #t)
 (test (Type? 10) #f)
 (test (Type? 'foo) #f)
+(test (Type? (boolT)) #t)
+(test (Type? (arrowT (boolT) (boolT))) #t)
 
-;; s-expr ::= 'Number
-;;         |  '(-> <s-expr> <s-expr>)
+;; s-expr-type ::= 'Number
+;;              |  '(-> <s-expr> <s-expr>)
 
-;; parse-type : s-expr -> Type 
-;; parsea un s-expr en un Type, o falla con un error
+;; parse-type : s-expr-type -> Type 
+;; parsea un s-expr-type en un Type, o falla con un error
 (define (parse-type t) 
   (match t
     ['Number (numT)]
     [(list '-> arg res) (arrowT (parse-type arg) (parse-type res))]
+    ; p1.c
+    ['Boolean (boolT)]
     [_ (error 'parse-type "invalid type: ~a" t)]))
 
 (test (parse-type 'Number) (numT))
 (test (parse-type '(-> Number Number)) (arrowT (numT) (numT)))
 (test (parse-type '(-> (-> Number Number) Number)) (arrowT (arrowT (numT) (numT)) (numT)))
 (test/exn (parse-type 'foo) "invalid type: foo")
+(test (parse-type 'Boolean) (boolT))
+(test (parse-type '(-> Boolean Boolean)) (arrowT (boolT) (boolT)))
+(test (parse-type '(-> (-> Boolean Number) Boolean)) (arrowT (arrowT (boolT) (numT)) (boolT)))
 
 ;; parse : s-expr -> Expr
 (define (parse s)
@@ -86,22 +104,43 @@
     [(binop op l r) (match op
         ['+ (match (cons (infer-type l tenv) (infer-type r tenv))
             [(cons (numT) (numT)) (numT)]
-            [_ (error 'infer-type "invalid operands")])]
+            [_ (error 'infer-type "invalid operand for +")])]
         ['- (match (cons (infer-type l tenv) (infer-type r tenv))
             [(cons (numT) (numT)) (numT)]
-            [_ (error 'infer-type "invalid operands")])]
+            [_ (error 'infer-type "invalid operand for -")])]
         ['* (match (cons (infer-type l tenv) (infer-type r tenv))
             [(cons (numT) (numT)) (numT)]
-            [_ (error 'infer-type "invalid operands")])]
+            [_ (error 'infer-type "invalid operand for *")])]
         [_ (error 'infer-type "invalid operator")])]
     [(id x) (tenv-lookup x tenv)]
     [(fun binder binderType body) (arrowT binderType (infer-type body (extend-tenv binder binderType tenv)))]
-    [(app callee arg) (match (infer-type callee tenv)
-        [(arrowT argType resType) (match (infer-type arg tenv)
-            [argType resType]
-            [_ (error 'infer-type "invalid argument")])]
-        [_ (error 'infer-type "invalid callee")])]
+    [(app callee arg) 
+        ; (match (infer-type callee tenv)
+        ; [(arrowT argType resType) (match (infer-type arg tenv)
+        ;     [argType resType]
+        ;     [_ (error 'infer-type "function argument type mismatch")])]
+        ; [_ (error 'infer-type "function application to a non-function")])
+        (define callee-type (infer-type callee tenv))
+        (define arg-type (infer-type arg tenv))
+        (print "callee-type:")
+        (print callee-type)
+        (print "arg-type:")
+        (print arg-type)
+
+        (match callee-type
+          [(arrowT T1 T2) (match arg-type
+              [T1 T2]
+              [_ (error 'infer-type "function argument type mismatch")])]
+          [_ (error 'infer-type "function application to a non-function")])]
 ))
+
+(test (infer-type (num 1) empty-tenv) (numT))
+(test (infer-type (fun 'x (numT) (id 'x)) empty-tenv) (arrowT (numT) (numT)))
+(test (infer-type (fun 'x (arrowT (numT) (numT)) (id 'x)) empty-tenv)
+(arrowT (arrowT (numT) (numT)) (arrowT (numT) (numT))))
+(test/exn (infer-type (binop '+ (num 1) (fun 'x (numT) (id 'x))) empty-tenv) "infer-type: invalid operand for +")
+(test/exn (infer-type (app (num 1) (num 2)) empty-tenv) "infer-type: function application to a non-function")
+(test/exn (infer-type (app (fun 'x (numT) (id 'x)) (fun 'x (numT) (id 'x))) empty-tenv) "infer-type: function argument type mismatch")
 
 (test (infer-type (parse 10) empty-tenv) (numT))
 (test (infer-type (parse '(+ 10 20)) empty-tenv) (numT))
@@ -111,7 +150,7 @@
 (test (infer-type (parse '(fun (x : Number) x)) empty-tenv) (arrowT (numT) (numT)))
 (test (infer-type (parse '(fun (x : Number) (+ x 1))) empty-tenv) (arrowT (numT) (numT)))
 (test (infer-type (parse '(fun (x : Number) (+ x x))) empty-tenv) (arrowT (numT) (numT)))
-(test/exn (infer-type (parse '(fun (x : Number) (+ x (fun (y : Number) y)))) empty-tenv) "invalid operands")
+(test/exn (infer-type (parse '(fun (x : Number) (+ x (fun (y : Number) y)))) empty-tenv) "infer-type: invalid operand for +")
 (test/exn (infer-type (parse '(fun (x : Number) (+ x y))) empty-tenv) "tenv-lookup")
 
 
