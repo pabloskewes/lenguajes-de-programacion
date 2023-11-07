@@ -229,8 +229,26 @@ empty-tenv) (numT))
 
 #| BEGIN P2 |#
 
-;; final? : ...
-(define (final? e) '???)
+;; final? : Expr -> Boolean
+;; Dada una expresión (de tipo Expr), retorna un booleano indicando
+;; si la expresión es un valor o no.
+(define (final? e) 
+  (match e
+    [(num _) #t]
+    [(id _) #t]
+    [(fun _ _ _) #t]
+    [(tt) #t]
+    [(ff) #t]
+    [_ #f]))
+
+(test (final? (num 1)) #t)
+(test (final? (id 'x)) #t)
+(test (final? (fun 'x (numT) (id 'x))) #t)
+(test (final? (tt)) #t)
+(test (final? (ff)) #t)
+(test (final? (binop '+ (num 1) (num 2))) #f)
+(test (final? (app (fun 'x (numT) (id 'x)) (num 1))) #f)
+
 
 (deftype Kont
   (mt-k) ; empty kont
