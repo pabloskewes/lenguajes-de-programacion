@@ -122,15 +122,10 @@
         ; [_ (error 'infer-type "function application to a non-function")])
         (define callee-type (infer-type callee tenv))
         (define arg-type (infer-type arg tenv))
-        (print "callee-type:")
-        (print callee-type)
-        (print "arg-type:")
-        (print arg-type)
-
         (match callee-type
-          [(arrowT T1 T2) (match arg-type
-              [T1 T2]
-              [_ (error 'infer-type "function argument type mismatch")])]
+          [(arrowT T1 T2) (if (equal? T1 arg-type) 
+                              T2 
+                              (error 'infer-type "function argument type mismatch"))]
           [_ (error 'infer-type "function application to a non-function")])]
 ))
 
