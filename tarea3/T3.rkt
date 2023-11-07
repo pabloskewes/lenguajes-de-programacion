@@ -259,8 +259,8 @@ empty-tenv) (numT))
 |#
 (deftype Kont
   (mt-k) ; empty kont
-  (binop-r-k right-comp env kont)
-  (binop-l-k left-comp env kont)
+  (binop-r-k op right-comp env kont)
+  (binop-l-k op left-comp env kont)
   (arg-k f-arg env kont)
   (fun-k evaled-fun env kont)
 )
@@ -268,8 +268,8 @@ empty-tenv) (numT))
 (define empty-kont (mt-k))
 
 (test (Kont? (mt-k)) #t)
-(test (Kont? (binop-r-k '+ empty-env empty-kont)) #t)
-(test (Kont? (binop-l-k '+ empty-env empty-kont)) #t)
+(test (Kont? (binop-r-k '+ (num 2) empty-env empty-kont)) #t)
+(test (Kont? (binop-l-k '+ (num 1) empty-env empty-kont)) #t)
 (test (Kont? (arg-k (num 1) empty-env empty-kont)) #t)
 (test (Kont? (fun-k (fun 'x (numT) (id 'x)) empty-env empty-kont)) #t)
 
@@ -280,7 +280,7 @@ empty-tenv) (numT))
   )
 
 (test (State? (st (num 1) empty-env empty-kont)) #t)
-(test (State? (st (num 1) empty-env (binop-r-k '+ empty-env empty-kont))) #t) 
+(test (State? (st (num 1) empty-env (binop-r-k '+ (num 2) empty-env empty-kont))) #t)
 
 ;; inject : Expr -> State
 ;; Recibe una expresión y crea un estado inicial,
@@ -294,15 +294,23 @@ empty-tenv) (numT))
 
 ;; step : State -> State
 ;; Recibe un estado y retorna el siguiente estado, sin usar recursión ni eval.
+;; Funciona de acuerdo a las siguientes reglas de transición:
+;; (Rleft)  ((op e1 e2 ), γ, k) -> (e1 , γ, binop-r-k(op, e2 , γ, k))
+;; (Rvar)   (x, γ, k) -> (v, γ', k) donde γ(x) = (v, γ')
+;; (Rfun)   ((e1 e2 ), γ, k) -> (e1 , γ, arg-k(e2 , γ, k))
+;; (Rright) (v1, γ, binop-r-k(op, e2, γ', k)) -> (e2, γ', binop-l-k(op, v1, γ, k))
+;; (Rbinop) (v2, γ, binop-l-k(op, v1 , γ', k)) -> (v1[op]v2, γ, k)
+;; (Rarg)   (v1, γ, arg-k(e2, γ', k)) -> (e2, γ', fun-k(v1, γ, k))
+;; (Rapp)   (v2, γ, fun-k((fun (x : _) e), γ', k)) -> (e, γ'[x -> (v2, γ)], k)
 (define (step c) '???)
 
 
-(test (step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
-(st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k)))) ; (Rleft)
-(test (step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
-(st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
-(test (step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
-(st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
+; (test (step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
+; (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k)))) ; (Rleft)
+; (test (step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
+; (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
+; (test (step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
+; (st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
 
 
 
