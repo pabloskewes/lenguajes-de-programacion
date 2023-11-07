@@ -48,7 +48,8 @@
 (test (Type? (arrowT (boolT) (boolT))) #t)
 
 ;; s-expr-type ::= 'Number
-;;              |  '(-> <s-expr> <s-expr>)
+;;             |  '(-> <s-expr> <s-expr>)
+;;             |  'Boolean
 
 ;; parse-type : s-expr-type -> Type 
 ;; parsea un s-expr-type en un Type, o falla con un error
@@ -249,24 +250,61 @@ empty-tenv) (numT))
 (test (final? (binop '+ (num 1) (num 2))) #f)
 (test (final? (app (fun 'x (numT) (id 'x)) (num 1))) #f)
 
-
+#|
+  Kont  ::= mt-k
+          | (binop-r-k <binop> <Env> <Kont>)
+          | (binop-l-k <binop> <Env> <Kont>)
+          | (arg-k <Val> <Env> <Kont>)
+          | (fun-k <Val> <Env> <Kont>)
+|#
 (deftype Kont
   (mt-k) ; empty kont
-  ;; ...
-  )
+  (binop-r-k right-comp env kont)
+  (binop-l-k left-comp env kont)
+  (arg-k f-arg env kont)
+  (fun-k evaled-fun env kont)
+)
 
 (define empty-kont (mt-k))
+
+(test (Kont? (mt-k)) #t)
+(test (Kont? (binop-r-k '+ empty-env empty-kont)) #t)
+(test (Kont? (binop-l-k '+ empty-env empty-kont)) #t)
+(test (Kont? (arg-k (num 1) empty-env empty-kont)) #t)
+(test (Kont? (fun-k (fun 'x (numT) (id 'x)) empty-env empty-kont)) #t)
+
 
 ;; State ::= (<Expr>, <Env>, <Kont>)
 (deftype State
   (st expr env kont)
   )
 
-;; inject : ...
-(define (inject expr) '???)
+(test (State? (st (num 1) empty-env empty-kont)) #t)
+(test (State? (st (num 1) empty-env (binop-r-k '+ empty-env empty-kont))) #t) 
 
-;; step : ...
+;; inject : Expr -> State
+;; Recibe una expresión y crea un estado inicial,
+;; con un ambiente vacío y la continuación vacía.
+(define (inject expr) (st expr empty-env empty-kont))
+
+(test (inject (num 1)) (st (num 1) empty-env empty-kont))
+(test (inject (id 'x)) (st (id 'x) empty-env empty-kont))
+(test (inject (fun 'x (numT) (id 'x))) (st (fun 'x (numT) (id 'x)) empty-env empty-kont))
+(test (inject (binop '+ (num 1) (num 2))) (st (binop '+ (num 1) (num 2)) empty-env empty-kont))
+
+;; step : State -> State
+;; Recibe un estado y retorna el siguiente estado, sin usar recursión ni eval.
 (define (step c) '???)
+
+
+(test (step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
+(st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k)))) ; (Rleft)
+(test (step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
+(st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
+(test (step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
+(st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
+
+
 
 ;; eval : Expr -> Expr
 (define (eval expr)
