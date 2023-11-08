@@ -371,5 +371,15 @@ empty-tenv) (numT))
         (eval-until-final (step state))))
   (eval-until-final (inject expr)))
 
-;; run : ...
-(define (run s-expr) '???)
+;; run : recibe una expresión s-expr, la parsea
+;; y retorna un par con la expresión evaluada y su tipo.
+(define (run s-expr) 
+  (define parsed (parse s-expr))
+  (define type (infer-type parsed empty-tenv))
+  (cons (eval parsed) type))
+
+
+(test (run '(+ 1 2)) (cons (num 3) (numT)))
+(test (run '(fun (x : Number) x)) (cons (fun 'x (numT) (id 'x)) (arrowT (numT) (numT))))
+(test (run '(fun (x : Number) (+ x 1))) (cons (fun 'x (numT) (binop '+ (id 'x) (num 1))) (arrowT (numT) (numT))))
+(test (run '(fun (x : Number) (- x x))) (cons (fun 'x (numT) (binop '- (id 'x) (id 'x))) (arrowT (numT) (numT))))
