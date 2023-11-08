@@ -298,7 +298,28 @@ empty-tenv) (numT))
 ;; (Rbinop) (v2, γ, binop-l-k(op, v1 , γ', k)) -> (v1[op]v2, γ, k)
 ;; (Rarg)   (v1, γ, arg-k(e2, γ', k)) -> (e2, γ', fun-k(v1, γ, k))
 ;; (Rapp)   (v2, γ, fun-k((fun (x : _) e), γ', k)) -> (e, γ'[x -> (v2, γ)], k)
-(define (step c) 
+(define (step c)
+  (match c
+    ; (Rleft)
+    [(st (binop op e1 e2) env kont) (st e1 env (binop-r-k op e2 env kont))]
+    ; (Rvar)
+    [(st (id x) env kont) (st (car (env-lookup x env)) (cdr (env-lookup x env)) kont)]
+    ; (Rfun)
+    [(st (app e1 e2) env kont) (st e1 env (arg-k e2 env kont))]
+    ; (Rright)
+    [(st v1 env (binop-r-k op e2 env2 kont)) (st e2 env2 (binop-l-k op v1 env kont))]
+    ; (Rbinop)
+    [(st v2 env (binop-l-k op v1 env2 kont)) 
+      (match op
+        ['+ (st (num+ v1 v2) env kont)]
+        ['- (st (num- v1 v2) env kont)]
+        ['* (st (num* v1 v2) env kont)]
+        [_ (error 'step "invalid operator")])]
+    ; (Rarg)
+    [(st v1 env (arg-k e2 env2 kont)) (st e2 env2 (fun-k v1 env kont))]
+    ; (Rapp)
+    [(st v2 env (fun-k (fun binder binderType body) env2 kont)) (st body (extend-env binder (cons v2 env) env2) kont)]
+    [_ (error 'step "invalid state")])
 )
 
 
@@ -308,6 +329,36 @@ empty-tenv) (numT))
 (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
 (test (step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
 (st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
+
+(test 
+(step (st (app (fun 'x (numT) (id 'x)) (num 2))
+(mtEnv)
+(mt-k)))
+(st (fun 'x (numT) (id 'x)) (mtEnv) (arg-k (num 2)
+(mtEnv)
+(mt-k)))) ; (Rfun)
+
+(test
+(step (st (fun 'x (numT) (id 'x)) (mtEnv) (arg-k (num 2)
+(mtEnv)
+(mt-k))))
+(st (num 2)
+(mtEnv)
+(fun-k (fun 'x (numT) (id 'x)) (mtEnv) (mt-k)))) ; (Rarg)
+
+(test
+(step (st (num 2)
+(mtEnv)
+(fun-k (fun 'x (numT) (id 'x)) (mtEnv) (mt-k))))
+(st (id 'x)
+(extend-env 'x (cons (num 2) (mtEnv)) (mtEnv))
+(mt-k))) ; (Rapp)
+
+(test
+(step (st (id 'x)
+(extend-env 'x (cons (num 2) (mtEnv)) (mtEnv))
+(mt-k)))
+(st (num 2) (mtEnv) (mt-k))) ; (Rvar)
 
 
 
