@@ -238,15 +238,11 @@ empty-tenv) (numT))
     [(num _) #t]
     [(id _) #t]
     [(fun _ _ _) #t]
-    [(tt) #t]
-    [(ff) #t]
     [_ #f]))
 
 (test (final? (num 1)) #t)
 (test (final? (id 'x)) #t)
 (test (final? (fun 'x (numT) (id 'x))) #t)
-(test (final? (tt)) #t)
-(test (final? (ff)) #t)
 (test (final? (binop '+ (num 1) (num 2))) #f)
 (test (final? (app (fun 'x (numT) (id 'x)) (num 1))) #f)
 
@@ -302,15 +298,16 @@ empty-tenv) (numT))
 ;; (Rbinop) (v2, γ, binop-l-k(op, v1 , γ', k)) -> (v1[op]v2, γ, k)
 ;; (Rarg)   (v1, γ, arg-k(e2, γ', k)) -> (e2, γ', fun-k(v1, γ, k))
 ;; (Rapp)   (v2, γ, fun-k((fun (x : _) e), γ', k)) -> (e, γ'[x -> (v2, γ)], k)
-(define (step c) '???)
+(define (step c) 
+)
 
 
-; (test (step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
-; (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k)))) ; (Rleft)
-; (test (step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
-; (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
-; (test (step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
-; (st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
+(test (step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
+(st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k)))) ; (Rleft)
+(test (step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
+(st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
+(test (step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
+(st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
 
 
 
