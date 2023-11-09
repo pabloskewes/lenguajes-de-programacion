@@ -1,5 +1,6 @@
 #lang play
 
+
 #|
   Expr  ::= <num>
           | (+ <Expr> <Expr>)
@@ -13,6 +14,7 @@
           | (<= <Expr> <Expr>)
           | (ifc <Expr> <Expr> <Expr>)
 |#
+;; Expr: Representa una expresión del lenguaje
 (deftype Expr
   ;; core
   (num n)
@@ -27,25 +29,19 @@
   (ifc condition then else_)
 )
 
+
 #| BEGIN P1 |#
 
 ;; Type ::= numT
 ;;        | (arrowT <Type> <Type>)
 ;;        | boolT
+;; Representa un tipo del lenguaje
 (deftype Type
   (numT)
   (arrowT argType resType)
   ;; p1.c
   (boolT)
 )
-
-(test (Type? (numT)) #t)
-(test (Type? (arrowT (numT) (numT))) #t)
-(test (Type? (arrowT (numT) (arrowT (numT) (numT)))) #t)
-(test (Type? 10) #f)
-(test (Type? 'foo) #f)
-(test (Type? (boolT)) #t)
-(test (Type? (arrowT (boolT) (boolT))) #t)
 
 ;; s-expr-type ::= 'Number
 ;;              |  '(-> <s-expr> <s-expr>)
@@ -62,16 +58,9 @@
     ['Boolean (boolT)]
     [_ (error 'parse-type "invalid type: ~a" t)]))
 
-(test (parse-type 'Number) (numT))
-(test (parse-type '(-> Number Number)) (arrowT (numT) (numT)))
-(test (parse-type '(-> (-> Number Number) Number)) (arrowT (arrowT (numT) (numT)) (numT)))
-(test/exn (parse-type 'foo) "invalid type: foo")
-; tests p1.c
-(test (parse-type 'Boolean) (boolT))
-(test (parse-type '(-> Boolean Boolean)) (arrowT (boolT) (boolT)))
-(test (parse-type '(-> (-> Boolean Number) Boolean)) (arrowT (arrowT (boolT) (numT)) (boolT)))
 
 ;; parse : s-expr -> Expr
+;; parsea un s-expr en un Expr, o falla con un error
 (define (parse s)
   (match s
     ; core
@@ -90,16 +79,6 @@
     [x #:when (symbol? x) (id x)]
     [_ (error 'parse "invalid syntax: ~a" s)]))
 
-(test (parse 10) (num 10))
-(test (parse 'foo) (id 'foo))
-(test (parse '(+ 10 20)) (binop '+ (num 10) (num 20)))
-(test (parse '(- 10 20)) (binop '- (num 10) (num 20)))
-(test (parse '(* 10 20)) (binop '* (num 10) (num 20)))
-(test (parse '(fun (x : Number) x)) (fun 'x (numT) (id 'x)))
-(test (parse '(fun (x : Number) (+ x 1))) (fun 'x (numT) (binop '+ (id 'x) (num 1))))
-(test (parse '(fun (x : Number) (+ x x))) (fun 'x (numT) (binop '+ (id 'x) (id 'x))))
-(test (parse '(if (<= 5 6) true false)) (ifc (binop '<= (num 5) (num 6)) (tt) (ff)))
-
 
 ;; Implementación de ambientes de tipos
 ;; (análoga a la de ambientes de valores)
@@ -109,6 +88,9 @@
 (define empty-tenv (mtTenv))
 (define extend-tenv aTenv)
 
+;; tenv-lookup : Symbol TypeEnv -> Type
+;; busca el tipo de un identificador en un ambiente de tipos,
+;; o falla con un error
 (define (tenv-lookup x env)
   (match env
     [(mtTenv) (error 'tenv-lookup "free identifier: ~a" id)]
@@ -155,40 +137,6 @@
         [_ (error 'infer-type "if condition must be a boolean")])]
     [_ (error 'infer-type "invalid expression")]
 ))
-
-; tests p1.a
-(test (infer-type (num 1) empty-tenv) (numT))
-(test (infer-type (fun 'x (numT) (id 'x)) empty-tenv) (arrowT (numT) (numT)))
-(test (infer-type (fun 'x (arrowT (numT) (numT)) (id 'x)) empty-tenv)
-(arrowT (arrowT (numT) (numT)) (arrowT (numT) (numT))))
-(test/exn (infer-type (binop '+ (num 1) (fun 'x (numT) (id 'x))) empty-tenv) "infer-type: invalid operand for +")
-(test/exn (infer-type (app (num 1) (num 2)) empty-tenv) "infer-type: function application to a non-function")
-(test/exn (infer-type (app (fun 'x (numT) (id 'x)) (fun 'x (numT) (id 'x))) empty-tenv) "infer-type: function argument type mismatch")
-
-(test (infer-type (parse 10) empty-tenv) (numT))
-(test (infer-type (parse '(+ 10 20)) empty-tenv) (numT))
-(test (infer-type (parse '(- 10 20)) empty-tenv) (numT))
-(test (infer-type (parse '(* 10 20)) empty-tenv) (numT))
-(test (infer-type (parse 'foo) (extend-tenv 'foo (numT) empty-tenv)) (numT))
-(test (infer-type (parse '(fun (x : Number) x)) empty-tenv) (arrowT (numT) (numT)))
-(test (infer-type (parse '(fun (x : Number) (+ x 1))) empty-tenv) (arrowT (numT) (numT)))
-(test (infer-type (parse '(fun (x : Number) (+ x x))) empty-tenv) (arrowT (numT) (numT)))
-(test/exn (infer-type (parse '(fun (x : Number) (+ x (fun (y : Number) y)))) empty-tenv) "infer-type: invalid operand for +")
-(test/exn (infer-type (parse '(fun (x : Number) (+ x y))) empty-tenv) "tenv-lookup")
-
-; tests p1.c
-(test (infer-type ( ifc (binop '<= (num 5) (num 6)) (num 2) (num 3))
-empty-tenv) (numT))
-(test/exn (infer-type ( ifc (num 5) (num 2) (num 3)) empty-tenv) "infer-type: if condition must be a boolean")
-(test/exn (infer-type ( ifc (binop '<= (num 5) (num 6)) (num 2) (tt)) empty-tenv) "infer-type: if branches type mismatch")
-
-(test (infer-type (parse 'true) empty-tenv) (boolT))
-(test (infer-type (parse 'false) empty-tenv) (boolT))
-(test (infer-type (parse '(<= 5 6)) empty-tenv) (boolT))
-(test (infer-type (parse '(if (<= 5 6) true false)) empty-tenv) (boolT))
-(test/exn (infer-type (parse '(if (<= 5 6) 5 false)) empty-tenv) "infer-type: if branches type mismatch")
-(test/exn (infer-type (parse '(if (<= 5 6) true 5)) empty-tenv) "infer-type: if branches type mismatch")
-(test/exn (infer-type (parse '(if (+ 5 6) true false)) empty-tenv) "infer-type: if condition must be a boolean")
 
 
 #| END P1 |#
@@ -241,11 +189,6 @@ empty-tenv) (numT))
     [(fun _ _ _) #t]
     [_ #f]))
 
-(test (final? (num 1)) #t)
-(test (final? (id 'x)) #t)
-(test (final? (fun 'x (numT) (id 'x))) #t)
-(test (final? (binop '+ (num 1) (num 2))) #f)
-(test (final? (app (fun 'x (numT) (id 'x)) (num 1))) #f)
 
 #|
   Kont  ::= mt-k
@@ -254,6 +197,7 @@ empty-tenv) (numT))
           | (arg-k <Val> <Env> <Kont>)
           | (fun-k <Val> <Env> <Kont>)
 |#
+; Kontinuation: stack de acciones por realizar
 (deftype Kont
   (mt-k) ; empty kont
   (binop-r-k op right-comp env kont)
@@ -264,30 +208,18 @@ empty-tenv) (numT))
 
 (define empty-kont (mt-k))
 
-(test (Kont? (mt-k)) #t)
-(test (Kont? (binop-r-k '+ (num 2) empty-env empty-kont)) #t)
-(test (Kont? (binop-l-k '+ (num 1) empty-env empty-kont)) #t)
-(test (Kont? (arg-k (num 1) empty-env empty-kont)) #t)
-(test (Kont? (fun-k (fun 'x (numT) (id 'x)) empty-env empty-kont)) #t)
-
-
 ;; State ::= (<Expr>, <Env>, <Kont>)
+;; Representa el estado de la máquina de evaluación
 (deftype State
   (st expr env kont)
   )
 
-(test (State? (st (num 1) empty-env empty-kont)) #t)
-(test (State? (st (num 1) empty-env (binop-r-k '+ (num 2) empty-env empty-kont))) #t)
 
 ;; inject : Expr -> State
 ;; Recibe una expresión y crea un estado inicial,
 ;; con un ambiente vacío y la continuación vacía.
 (define (inject expr) (st expr empty-env empty-kont))
 
-(test (inject (num 1)) (st (num 1) empty-env empty-kont))
-(test (inject (id 'x)) (st (id 'x) empty-env empty-kont))
-(test (inject (fun 'x (numT) (id 'x))) (st (fun 'x (numT) (id 'x)) empty-env empty-kont))
-(test (inject (binop '+ (num 1) (num 2))) (st (binop '+ (num 1) (num 2)) empty-env empty-kont))
 
 ;; step : State -> State
 ;; Recibe un estado y retorna el siguiente estado, sin usar recursión ni eval.
@@ -324,50 +256,6 @@ empty-tenv) (numT))
 )
 
 
-(test
-(step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
-(st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k)))) ; (Rleft)
-
-(test 
-(step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
-(st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
-
-(test 
-(step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
-(st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
-
-(test 
-(step (st (app (fun 'x (numT) (id 'x)) (num 2))
-(mtEnv)
-(mt-k)))
-(st (fun 'x (numT) (id 'x)) (mtEnv) (arg-k (num 2)
-(mtEnv)
-(mt-k)))) ; (Rfun)
-
-(test
-(step (st (fun 'x (numT) (id 'x)) (mtEnv) (arg-k (num 2)
-(mtEnv)
-(mt-k))))
-(st (num 2)
-(mtEnv)
-(fun-k (fun 'x (numT) (id 'x)) (mtEnv) (mt-k)))) ; (Rarg)
-
-(test
-(step (st (num 2)
-(mtEnv)
-(fun-k (fun 'x (numT) (id 'x)) (mtEnv) (mt-k))))
-(st (id 'x)
-(extend-env 'x (cons (num 2) (mtEnv)) (mtEnv))
-(mt-k))) ; (Rapp)
-
-(test
-(step (st (id 'x)
-(extend-env 'x (cons (num 2) (mtEnv)) (mtEnv))
-(mt-k)))
-(st (num 2) (mtEnv) (mt-k))) ; (Rvar)
-
-
-
 ;; eval : Expr -> Expr
 (define (eval expr)
   (define (eval-until-final state)
@@ -377,16 +265,10 @@ empty-tenv) (numT))
         (eval-until-final (step state))))
   (eval-until-final (inject expr)))
 
-;; run : recibe una expresión s-expr, la parsea
+;; run : s-expr -> (Val, Type)
+;; recibe una expresión s-expr, la parsea
 ;; y retorna un par con la expresión evaluada y su tipo.
 (define (run s-expr) 
   (define parsed (parse s-expr))
   (define type (infer-type parsed empty-tenv))
   (cons (eval parsed) type))
-
-
-(test (run '(+ 1 2)) (cons (num 3) (numT)))
-(test (run '(fun (x : Number) x)) (cons (fun 'x (numT) (id 'x)) (arrowT (numT) (numT))))
-(test (run '(fun (x : Number) (+ x 1))) (cons (fun 'x (numT) (binop '+ (id 'x) (num 1))) (arrowT (numT) (numT))))
-(test (run '(fun (x : Number) (- x x))) (cons (fun 'x (numT) (binop '- (id 'x) (id 'x))) (arrowT (numT) (numT))))
-(test (run '(* 10 20)) (cons (num 200) (numT))) 
