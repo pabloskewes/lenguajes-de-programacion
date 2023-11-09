@@ -1,5 +1,4 @@
 #lang play
-(print-only-errors #t)
 
 #|
   Expr  ::= <num>
@@ -32,6 +31,7 @@
 
 ;; Type ::= numT
 ;;        | (arrowT <Type> <Type>)
+;;        | boolT
 (deftype Type
   (numT)
   (arrowT argType resType)
@@ -48,8 +48,8 @@
 (test (Type? (arrowT (boolT) (boolT))) #t)
 
 ;; s-expr-type ::= 'Number
-;;             |  '(-> <s-expr> <s-expr>)
-;;             |  'Boolean
+;;              |  '(-> <s-expr> <s-expr>)
+;;              |  'Boolean
 
 ;; parse-type : s-expr-type -> Type 
 ;; parsea un s-expr-type en un Type, o falla con un error
@@ -99,6 +99,7 @@
 (test (parse '(fun (x : Number) (+ x 1))) (fun 'x (numT) (binop '+ (id 'x) (num 1))))
 (test (parse '(fun (x : Number) (+ x x))) (fun 'x (numT) (binop '+ (id 'x) (id 'x))))
 (test (parse '(if (<= 5 6) true false)) (ifc (binop '<= (num 5) (num 6)) (tt) (ff)))
+
 
 ;; Implementación de ambientes de tipos
 ;; (análoga a la de ambientes de valores)
@@ -323,11 +324,16 @@ empty-tenv) (numT))
 )
 
 
-(test (step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
+(test
+(step (st (binop '+ (num 1) (num 2)) (mtEnv) (mt-k)))
 (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k)))) ; (Rleft)
-(test (step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
+
+(test 
+(step (st (num 1) (mtEnv) (binop-r-k '+ (num 2) (mtEnv) (mt-k))))
 (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k)))) ; (Rright)
-(test (step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
+
+(test 
+(step (st (num 2) (mtEnv) (binop-l-k '+ (num 1) (mtEnv) (mt-k))))
 (st (num 3) (mtEnv) (mt-k))) ; (Rbinop)
 
 (test 
@@ -383,3 +389,4 @@ empty-tenv) (numT))
 (test (run '(fun (x : Number) x)) (cons (fun 'x (numT) (id 'x)) (arrowT (numT) (numT))))
 (test (run '(fun (x : Number) (+ x 1))) (cons (fun 'x (numT) (binop '+ (id 'x) (num 1))) (arrowT (numT) (numT))))
 (test (run '(fun (x : Number) (- x x))) (cons (fun 'x (numT) (binop '- (id 'x) (id 'x))) (arrowT (numT) (numT))))
+(test (run '(* 10 20)) (cons (num 200) (numT))) 
